@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 type Theme = 'light' | 'dark';
 
@@ -27,6 +28,7 @@ export interface Product {
     description: string;
     features: string[];
     reviews?: any[];
+    media?: { type: 'image' | 'video'; url: string }[];
 }
 
 export interface CartItem extends Product {
@@ -75,15 +77,52 @@ export function Providers({ children }: { children: React.ReactNode }) {
             document.documentElement.classList.add('dark');
         }
 
-        // Load cart from local storage
-        const savedCart = localStorage.getItem('cart');
-        if (savedCart) {
-            try {
-                setCart(JSON.parse(savedCart));
-            } catch (e) {
-                console.error('Failed to parse cart', e);
+    }, []);
+
+    // Sync with Supabase on mount and auth state change
+    useEffect(() => {
+        const syncCart = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (user) {
+                // Fetch cart from Supabase
+                const { data: cartItems, error } = await supabase
+                    .from('cart_items')
+                    .select('*, products(*)')
+                    .eq('user_id', user.id);
+
+                if (cartItems && !error) {
+                    const mappedItems: CartItem[] = cartItems.map((item: any) => ({
+                        ...item.products, // Spread product details
+                        quantity: item.quantity,
+                        // Ensure ID matches product ID, not cart item ID
+                        id: item.product_id
+                    }));
+                    setCart(mappedItems);
+                }
+            } else {
+                // Load from local storage if not logged in
+                const savedCart = localStorage.getItem('cart');
+                if (savedCart) {
+                    try {
+                        setCart(JSON.parse(savedCart));
+                    } catch (e) {
+                        console.error('Failed to parse cart', e);
+                    }
+                }
             }
-        }
+        };
+
+        syncCart();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+            syncCart();
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
@@ -104,7 +143,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const addToCart = (product: Product) => {
+    const addToCart = async (product: Product) => {
+        // Optimistic update
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
@@ -116,20 +156,74 @@ export function Providers({ children }: { children: React.ReactNode }) {
             }
             return [...prev, { ...product, quantity: 1 }];
         });
+
+        // Sync with Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            // Check if item exists in DB
+            const { data: existingItem } = await supabase
+                .from('cart_items')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('product_id', product.id)
+                .single();
+
+            if (existingItem) {
+                await supabase
+                    .from('cart_items')
+                    .update({ quantity: existingItem.quantity + 1 })
+                    .eq('id', existingItem.id);
+            } else {
+                await supabase
+                    .from('cart_items')
+                    .insert({
+                        user_id: user.id,
+                        product_id: product.id,
+                        quantity: 1
+                    });
+            }
+        }
     };
 
-    const removeFromCart = (productId: string) => {
+    const removeFromCart = async (productId: string) => {
         setCart(prev => prev.filter(item => item.id !== productId));
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase
+                .from('cart_items')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('product_id', productId);
+        }
     };
 
-    const updateQuantity = (productId: string, quantity: number) => {
+    const updateQuantity = async (productId: string, quantity: number) => {
         if (quantity < 1) return;
         setCart(prev => prev.map(item =>
             item.id === productId ? { ...item, quantity } : item
         ));
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase
+                .from('cart_items')
+                .update({ quantity })
+                .eq('user_id', user.id)
+                .eq('product_id', productId);
+        }
     };
 
-    const clearCart = () => setCart([]);
+    const clearCart = async () => {
+        setCart([]);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase
+                .from('cart_items')
+                .delete()
+                .eq('user_id', user.id);
+        }
+    };
 
     const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
 

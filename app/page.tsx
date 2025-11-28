@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import ProductCard from './components/ProductCard';
 import { Filter } from 'lucide-react';
-import { PRODUCTS } from './lib/data';
+import { supabase } from './lib/supabase';
+import { Product } from './components/Providers';
 import { BackgroundPaths } from '@/components/ui/background-paths';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -12,8 +13,38 @@ const CATEGORIES = ["All", "Electronics", "Clothing", "Accessories", "Bags", "Fo
 export default function Home() {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [showSplash, setShowSplash] = useState(false);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const fetchProducts = async () => {
+            const { data, error } = await supabase
+                .from('products')
+                .select('*');
+
+            if (data && !error) {
+                // Map DB fields to Product interface if needed (e.g. camelCase)
+                // Our DB columns match the interface mostly, but let's be safe
+                const mappedProducts: Product[] = data.map((p: any) => ({
+                    id: p.id,
+                    name: p.name,
+                    price: p.price,
+                    originalPrice: p.original_price,
+                    image: p.image,
+                    category: p.category,
+                    rating: p.rating || 0,
+                    reviewsCount: p.reviews_count || 0,
+                    soldCount: p.sold_count || 0,
+                    description: p.description,
+                    features: p.features || []
+                }));
+                setProducts(mappedProducts);
+            }
+            setLoading(false);
+        };
+
+        fetchProducts();
+
         const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
         if (!hasSeenSplash) {
             setShowSplash(true);
@@ -22,8 +53,8 @@ export default function Home() {
     }, []);
 
     const filteredProducts = selectedCategory === "All"
-        ? PRODUCTS
-        : PRODUCTS.filter(p => p.category === selectedCategory);
+        ? products
+        : products.filter(p => p.category === selectedCategory);
 
     const handleSplashComplete = () => {
         setShowSplash(false);
@@ -83,8 +114,8 @@ export default function Home() {
                                 <h3 className="font-medium mb-4 opacity-80">Price Range</h3>
                                 <input type="range" className="w-full accent-[var(--primary)]" />
                                 <div className="flex justify-between text-sm opacity-60 mt-2">
-                                    <span>$0</span>
-                                    <span>$1000</span>
+                                    <span>₹0</span>
+                                    <span>₹1000</span>
                                 </div>
                             </div>
                         </div>
@@ -100,9 +131,22 @@ export default function Home() {
                         </div>
 
                         <div className="grid-products">
-                            {filteredProducts.map(product => (
-                                <ProductCard key={product.id} product={product} />
-                            ))}
+                            {loading ? (
+                                // Skeleton loading
+                                Array.from({ length: 8 }).map((_, i) => (
+                                    <div key={i} className="card h-[400px] animate-pulse">
+                                        <div className="h-[300px] bg-[var(--secondary)] rounded-t-xl" />
+                                        <div className="p-4 space-y-3">
+                                            <div className="h-4 bg-[var(--secondary)] rounded w-3/4" />
+                                            <div className="h-4 bg-[var(--secondary)] rounded w-1/2" />
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                filteredProducts.map(product => (
+                                    <ProductCard key={product.id} product={product} />
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

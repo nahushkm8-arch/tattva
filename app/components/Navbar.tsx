@@ -5,18 +5,37 @@ import { ShoppingCart, Search, Sun, Moon, User, Mic, Camera } from 'lucide-react
 import { useTheme, useCart } from './Providers';
 import { useState, useEffect } from 'react';
 
+import { supabase } from '../lib/supabase';
+
 export default function Navbar() {
     const { theme, toggleTheme } = useTheme();
     const { cart } = useCart();
     const [searchQuery, setSearchQuery] = useState('');
     const [mounted, setMounted] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
         setMounted(true);
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        checkUser();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
     const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+    };
 
     const handleVoiceSearch = () => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -97,7 +116,7 @@ export default function Navbar() {
                 {/* Actions */}
                 <div className="flex items-center gap-4">
                     <Link href="/seller" className="nav-link hidden sm:block">
-                        Become a Seller
+                        Seller Dashboard
                     </Link>
 
                     <button onClick={toggleTheme} className="p-2 hover:bg-[var(--accent)] rounded-full transition-colors">
@@ -117,9 +136,15 @@ export default function Navbar() {
                         <User size={20} />
                     </Link>
 
-                    <Link href="/login" className="btn btn-primary text-sm">
-                        Sign In
-                    </Link>
+                    {user ? (
+                        <button onClick={handleSignOut} className="btn btn-outline text-sm">
+                            Sign Out
+                        </button>
+                    ) : (
+                        <Link href="/login" className="btn btn-primary text-sm">
+                            Sign In
+                        </Link>
+                    )}
                 </div>
             </div>
         </nav>

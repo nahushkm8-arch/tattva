@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ShoppingCart, Check, Star } from 'lucide-react';
 import { useCart, Product } from './Providers';
 import { useState } from 'react';
+import WishlistButton from './WishlistButton';
 
 // Extend the global Product type or use it directly. 
 // Since the global type has more fields, we can just use it, 
@@ -43,6 +44,9 @@ export default function ProductCard({ product }: { product: any }) {
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                     />
                 </Link>
+                <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <WishlistButton productId={product.id.toString()} className="bg-white/80 dark:bg-black/50 p-2 rounded-full backdrop-blur-sm" />
+                </div>
                 <button
                     onClick={handleAddToCart}
                     className={`absolute bottom-4 right-4 p-3 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] z-10 ${isAdded ? 'bg-green-500 text-white opacity-100' : 'bg-[var(--background)]'}`}
@@ -72,7 +76,7 @@ export default function ProductCard({ product }: { product: any }) {
                     <span className="text-xs opacity-60">({product.reviewsCount || 0})</span>
                 </div>
                 <div className="font-bold text-[var(--primary)]">
-                    ${product.price.toFixed(2)}
+                    ₹{product.price.toFixed(2)}
                 </div>
 
                 {product.reviews && product.reviews.length > 0 && (

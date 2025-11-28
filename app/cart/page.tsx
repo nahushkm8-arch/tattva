@@ -44,7 +44,7 @@ export default function CartPage() {
                             <div className="flex-1">
                                 <h3 className="font-bold text-lg">{item.name}</h3>
                                 <p className="text-sm opacity-60">{item.category}</p>
-                                <div className="mt-2 font-bold text-[var(--primary)]">${item.price.toFixed(2)}</div>
+                                <div className="mt-2 font-bold text-[var(--primary)]">₹{item.price.toFixed(2)}</div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
@@ -81,7 +81,7 @@ export default function CartPage() {
                         <div className="space-y-4 mb-6">
                             <div className="flex justify-between">
                                 <span className="opacity-70">Subtotal</span>
-                                <span className="font-medium">${cartTotal.toFixed(2)}</span>
+                                <span className="font-medium">₹{cartTotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="opacity-70">Shipping</span>
@@ -89,11 +89,11 @@ export default function CartPage() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="opacity-70">Tax (Estimated)</span>
-                                <span className="font-medium">${(cartTotal * 0.1).toFixed(2)}</span>
+                                <span className="font-medium">₹{(cartTotal * 0.1).toFixed(2)}</span>
                             </div>
                             <div className="border-t border-[var(--border)] pt-4 flex justify-between text-lg font-bold">
                                 <span>Total</span>
-                                <span>${(cartTotal * 1.1).toFixed(2)}</span>
+                                <span>₹{(cartTotal * 1.1).toFixed(2)}</span>
                             </div>
                         </div>
 
